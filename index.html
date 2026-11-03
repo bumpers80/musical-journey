@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#101827">
+  <title>Simple Calculator</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #101827;
+      color: #f8fafc;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      padding: 1rem;
+    }
+
+    .calculator {
+      width: min(100%, 22rem);
+      padding: 1.25rem;
+      border: 1px solid #334155;
+      border-radius: 1.25rem;
+      background: #1e293b;
+      box-shadow: 0 1.5rem 4rem #0005;
+    }
+
+    h1 {
+      margin: 0 0 1rem;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #cbd5e1;
+    }
+
+    .display {
+      min-height: 5rem;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      overflow: hidden;
+      margin-bottom: 1rem;
+      padding: 0.75rem 1rem;
+      border-radius: 0.75rem;
+      background: #0f172a;
+      color: #fff;
+      font-size: clamp(2rem, 10vw, 2.75rem);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .keys {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.65rem;
+    }
+
+    button {
+      min-height: 3.5rem;
+      border: 0;
+      border-radius: 0.75rem;
+      background: #334155;
+      color: #f8fafc;
+      font: inherit;
+      font-size: 1.2rem;
+      cursor: pointer;
+      transition: background 120ms ease, transform 120ms ease;
+    }
+
+    button:hover { background: #475569; }
+    button:active { transform: scale(0.96); }
+    button:focus-visible { outline: 3px solid #38bdf8; outline-offset: 2px; }
+    button.utility { background: #475569; }
+    button.operator { background: #0369a1; }
+    button.operator:hover { background: #0284c7; }
+    button.equals { grid-row: span 2; background: #16a34a; }
+    button.equals:hover { background: #22c55e; }
+    button.zero { grid-column: span 2; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="calculator" aria-label="Calculator">
+    <h1>Calculator</h1>
+    <output class="display" id="display" aria-live="polite" aria-atomic="true">0</output>
+    <div class="keys">
+      <button class="utility" data-action="clear" aria-label="Clear">AC</button>
+      <button class="utility" data-action="delete" aria-label="Delete last digit">DEL</button>
+      <button class="operator" data-operator="/" aria-label="Divide">÷</button>
+      <button class="operator" data-operator="*" aria-label="Multiply">×</button>
+
+      <button data-digit="7">7</button>
+      <button data-digit="8">8</button>
+      <button data-digit="9">9</button>
+      <button class="operator" data-operator="-" aria-label="Subtract">−</button>
+
+      <button data-digit="4">4</button>
+      <button data-digit="5">5</button>
+      <button data-digit="6">6</button>
+      <button class="operator" data-operator="+" aria-label="Add">+</button>
+
+      <button data-digit="1">1</button>
+      <button data-digit="2">2</button>
+      <button data-digit="3">3</button>
+      <button class="equals" data-action="equals" aria-label="Equals">=</button>
+
+      <button class="zero" data-digit="0">0</button>
+      <button data-action="decimal" aria-label="Decimal point">.</button>
+    </div>
+  </main>
+
+  <script>
+    const display = document.querySelector("#display");
+    let currentValue = "0";
+    let storedValue = null;
+    let pendingOperator = null;
+    let startNewNumber = false;
+
+    function updateDisplay() {
+      display.textContent = currentValue;
+    }
+
+    function enterDigit(digit) {
+      if (startNewNumber || currentValue === "0" || currentValue === "Error") {
+        currentValue = digit;
+        startNewNumber = false;
+      } else if (currentValue.length < 14) {
+        currentValue += digit;
+      }
+      updateDisplay();
+    }
+
+    function enterDecimal() {
+      if (startNewNumber || currentValue === "Error") {
+        currentValue = "0.";
+        startNewNumber = false;
+      } else if (!currentValue.includes(".")) {
+        currentValue += ".";
+      }
+      updateDisplay();
+    }
+
+    function calculate(left, right, operator) {
+      switch (operator) {
+        case "+": return left + right;
+        case "-": return left - right;
+        case "*": return left * right;
+        case "/": return right === 0 ? NaN : left / right;
+        default: return right;
+      }
+    }
+
+    function formatResult(value) {
+      if (!Number.isFinite(value)) return "Error";
+      return String(Number(value.toPrecision(10)));
+    }
+
+    function chooseOperator(operator) {
+      const value = Number(currentValue);
+      if (pendingOperator && !startNewNumber) {
+        currentValue = formatResult(calculate(storedValue, value, pendingOperator));
+        updateDisplay();
+        if (currentValue === "Error") {
+          storedValue = null;
+          pendingOperator = null;
+          startNewNumber = true;
+          return;
+        }
+      } else {
+        storedValue = value;
+      }
+      pendingOperator = operator;
+      startNewNumber = true;
+    }
+
+    function showResult() {
+      if (!pendingOperator || storedValue === null) return;
+      currentValue = formatResult(calculate(storedValue, Number(currentValue), pendingOperator));
+      storedValue = null;
+      pendingOperator = null;
+      startNewNumber = true;
+      updateDisplay();
+    }
+
+    function clear() {
+      currentValue = "0";
+      storedValue = null;
+      pendingOperator = null;
+      startNewNumber = false;
+      updateDisplay();
+    }
+
+    function deleteLast() {
+      if (startNewNumber || currentValue === "Error") return;
+      currentValue = currentValue.length > 1 ? currentValue.slice(0, -1) : "0";
+      if (currentValue === "-" || currentValue === "") currentValue = "0";
+      updateDisplay();
+    }
+
+    document.querySelector(".keys").addEventListener("click", (event) => {
+      const button = event.target.closest("button");
+      if (!button) return;
+      if (button.dataset.digit !== undefined) enterDigit(button.dataset.digit);
+      else if (button.dataset.operator) chooseOperator(button.dataset.operator);
+      else if (button.dataset.action === "decimal") enterDecimal();
+      else if (button.dataset.action === "equals") showResult();
+      else if (button.dataset.action === "clear") clear();
+      else if (button.dataset.action === "delete") deleteLast();
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (/^[0-9]$/.test(event.key)) enterDigit(event.key);
+      else if (event.key === ".") enterDecimal();
+      else if (["+", "-", "*", "/"].includes(event.key)) chooseOperator(event.key);
+      else if (event.key === "Enter" || event.key === "=") showResult();
+      else if (event.key === "Backspace") deleteLast();
+      else if (event.key === "Escape") clear();
+      else return;
+      event.preventDefault();
+    });
+  </script>
+</body>
+</html>
